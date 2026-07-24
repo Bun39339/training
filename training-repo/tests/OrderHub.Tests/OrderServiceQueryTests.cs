@@ -41,6 +41,38 @@ public class OrderServiceQueryTests
     }
 
     [Fact]
+    public async Task GetOrders_PaginatesFromNewestOrderWithoutSkippingFirstPage()
+    {
+        using var db = TestSetup.CreateContext();
+        var service = TestSetup.CreateOrderService(db);
+        var customer = TestSetup.AddCustomer(db);
+        var createdAt = DateTime.UtcNow;
+
+        for (var i = 0; i < 45; i++)
+            db.Orders.Add(new Order
+            {
+                CustomerId = customer.Id,
+                Status = OrderStatus.Confirmed,
+                CreatedAt = createdAt.AddMinutes(-i)
+            });
+        db.SaveChanges();
+
+        var newestOrderId = db.Orders
+            .OrderByDescending(o => o.CreatedAt)
+            .Select(o => o.Id)
+            .First();
+
+        var firstPage = await service.GetOrdersAsync(1, 20, null);
+        var secondPage = await service.GetOrdersAsync(2, 20, null);
+        var thirdPage = await service.GetOrdersAsync(3, 20, null);
+
+        Assert.Equal(newestOrderId, firstPage.Items[0].Id);
+        Assert.Equal(20, firstPage.Items.Count);
+        Assert.Equal(20, secondPage.Items.Count);
+        Assert.Equal(5, thirdPage.Items.Count);
+    }
+
+    [Fact]
     public async Task GetCustomerOrders_ReturnsOnlyThatCustomersOrders()
     {
         using var db = TestSetup.CreateContext();
