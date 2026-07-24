@@ -41,8 +41,12 @@ gpt-5.6-sol
 練習 1
 
 1. 我能不看筆記說出三個專案（Web/Core/Infrastructure）各自的職責
+   OK
 2. 我核對過 agent 描述的建單流程，且**至少找出一處不精確或過度簡化的說法**
+   <img width="1257" height="814" alt="image" src="https://github.com/user-attachments/assets/a78fadb1-75e0-4d38-9584-ed1973b6aecf" />
+   Codex Agent 描述的建單流程看起來精準
 3. 我知道商業邏輯應該放在哪一層、新增頁面要動哪些地方
+   OK
 
 練習 2
 
@@ -74,4 +78,6 @@ gpt-5.6-sol
 
 （貼 1–2 段最有代表性的 prompt 與回應**摘要**——不用貼全文，重點是「我怎麼問」和「它怎麼答」。）
 <img width="1225" height="457" alt="image" src="https://github.com/user-attachments/assets/5eda1901-77f5-4e20-9913-4b023bf6b898" />
+
+
 
