@@ -38,7 +38,10 @@ public class OrderServicePricingTests
     [InlineData(CustomerTier.Standard, 1000, 1000)]
     [InlineData(CustomerTier.Silver, 1000, 950)]
     [InlineData(CustomerTier.Gold, 1000, 900)]
-    public void CalculateTotal_AppliesTierDiscountOnSubtotal(CustomerTier tier, decimal unitPrice, decimal expectedTotal)
+    public void CalculateTotal_AppliesSnapshottedTierDiscountOnSubtotal(
+        CustomerTier tier,
+        decimal unitPrice,
+        decimal expectedTotal)
     {
         using var db = TestSetup.CreateContext();
         var service = TestSetup.CreateOrderService(db);
@@ -46,6 +49,7 @@ public class OrderServicePricingTests
         var order = new Order
         {
             Customer = new Customer { Tier = tier },
+            DiscountRateSnapshot = service.GetDiscountRate(tier),
             Items = { new OrderItem { Quantity = 1, UnitPriceSnapshot = unitPrice } }
         };
 
@@ -64,5 +68,22 @@ public class OrderServicePricingTests
         };
 
         Assert.Equal(500m, service.CalculateTotal(order));
+    }
+
+    [Fact]
+    public void CalculateTotal_LegacyGoldOrder_DoesNotDiscountStoredNetPriceAgain()
+    {
+        using var db = TestSetup.CreateContext();
+        var service = TestSetup.CreateOrderService(db);
+
+        var order = new Order
+        {
+            Customer = new Customer { Tier = CustomerTier.Gold },
+            Items = { new OrderItem { Quantity = 1, UnitPriceSnapshot = 1278m } }
+        };
+
+        Assert.Null(order.DiscountRateSnapshot);
+        Assert.Null(order.TotalAmountSnapshot);
+        Assert.Equal(1278m, service.CalculateTotal(order));
     }
 }

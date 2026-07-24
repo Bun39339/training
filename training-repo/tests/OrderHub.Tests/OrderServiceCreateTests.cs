@@ -37,6 +37,53 @@ public class OrderServiceCreateTests
     }
 
     [Fact]
+    public async Task CreateOrder_GoldCustomer_PersistedTotalAppliesDiscountOnce()
+    {
+        using var db = TestSetup.CreateContext();
+        var service = TestSetup.CreateOrderService(db);
+        var customer = TestSetup.AddCustomer(db, CustomerTier.Gold);
+        var product = TestSetup.AddProduct(db, unitPrice: 1420m);
+
+        var result = await service.CreateOrderAsync(
+            customer.Id,
+            new[] { new NewOrderLine(product.Id, 1) });
+
+        Assert.True(result.Success);
+
+        db.ChangeTracker.Clear();
+        var persistedOrder = await service.GetOrderAsync(result.Value!.Id);
+
+        Assert.NotNull(persistedOrder);
+        Assert.Equal(1420m, persistedOrder!.Items.Single().UnitPriceSnapshot);
+        Assert.Equal(0.10m, persistedOrder.DiscountRateSnapshot);
+        Assert.Equal(1278m, persistedOrder.TotalAmountSnapshot);
+        Assert.Equal(1278m, service.CalculateTotal(persistedOrder!));
+    }
+
+    [Fact]
+    public async Task CreateOrder_PricingSnapshotDoesNotChangeWhenCustomerTierChanges()
+    {
+        using var db = TestSetup.CreateContext();
+        var service = TestSetup.CreateOrderService(db);
+        var customer = TestSetup.AddCustomer(db, CustomerTier.Gold);
+        var product = TestSetup.AddProduct(db, unitPrice: 1000m);
+
+        var result = await service.CreateOrderAsync(
+            customer.Id,
+            new[] { new NewOrderLine(product.Id, 1) });
+
+        customer.Tier = CustomerTier.Standard;
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        var persistedOrder = await service.GetOrderAsync(result.Value!.Id);
+
+        Assert.NotNull(persistedOrder);
+        Assert.Equal(0.10m, service.GetAppliedDiscountRate(persistedOrder!));
+        Assert.Equal(900m, service.CalculateTotal(persistedOrder!));
+    }
+
+    [Fact]
     public async Task CreateOrder_DecrementsProductStock()
     {
         using var db = TestSetup.CreateContext();

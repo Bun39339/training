@@ -32,6 +32,15 @@ public class OrderHubDbContext : DbContext
 
         modelBuilder.Entity<Order>(entity =>
         {
+            entity.Property(o => o.DiscountRateSnapshot).HasPrecision(5, 4);
+            entity.Property(o => o.TotalAmountSnapshot).HasPrecision(18, 2);
+            entity.ToTable(table => table.HasCheckConstraint(
+                "CK_Orders_DiscountRateSnapshot_Range",
+                "[DiscountRateSnapshot] IS NULL OR ([DiscountRateSnapshot] >= 0 AND [DiscountRateSnapshot] <= 1)"));
+            entity.ToTable(table => table.HasCheckConstraint(
+                "CK_Orders_PricingSnapshots_Complete",
+                "([DiscountRateSnapshot] IS NULL AND [TotalAmountSnapshot] IS NULL) OR " +
+                "([DiscountRateSnapshot] IS NOT NULL AND [TotalAmountSnapshot] IS NOT NULL)"));
             entity.HasOne(o => o.Customer)
                 .WithMany(c => c.Orders)
                 .HasForeignKey(o => o.CustomerId)

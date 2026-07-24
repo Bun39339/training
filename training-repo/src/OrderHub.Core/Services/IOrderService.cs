@@ -12,6 +12,7 @@ public interface IOrderService
     Task<ServiceResult<Order>> CancelOrderAsync(int id);
 
     decimal GetDiscountRate(CustomerTier tier);
+    decimal GetAppliedDiscountRate(Order order);
     decimal CalculateSubtotal(Order order);
     decimal CalculateTotal(Order order);
 }

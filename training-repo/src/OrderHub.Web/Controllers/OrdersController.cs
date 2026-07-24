@@ -136,6 +136,7 @@ public class OrdersController : Controller
         var subtotal = _orderService.CalculateSubtotal(order);
         var total = _orderService.CalculateTotal(order);
         var tier = order.Customer?.Tier ?? CustomerTier.Standard;
+        var discountRate = _orderService.GetAppliedDiscountRate(order);
 
         return new OrderDetailsViewModel
         {
@@ -155,7 +156,7 @@ public class OrdersController : Controller
                 LineTotal = i.UnitPriceSnapshot * i.Quantity
             }).ToList(),
             Subtotal = subtotal,
-            DiscountRate = _orderService.GetDiscountRate(tier),
+            DiscountRate = discountRate,
             DiscountAmount = subtotal - total,
             Total = total
         };

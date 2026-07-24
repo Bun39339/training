@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using OrderHub.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using OrderHub.Infrastructure.Data;
 namespace OrderHub.Infrastructure.Migrations
 {
     [DbContext(typeof(OrderHubDbContext))]
-    partial class OrderHubDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260724082919_AddOrderPricingSnapshots")]
+    partial class AddOrderPricingSnapshots
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

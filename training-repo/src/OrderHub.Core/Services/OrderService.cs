@@ -51,8 +51,10 @@ public class OrderService : IOrderService
         var order = new Order
         {
             CustomerId = customer.Id,
+            Customer = customer,
             Status = OrderStatus.Pending,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            DiscountRateSnapshot = GetDiscountRate(customer.Tier)
         };
 
         foreach (var line in lines)
@@ -72,22 +74,18 @@ public class OrderService : IOrderService
 
             product.StockQuantity -= line.Quantity;
 
-            var unitPrice = product.UnitPrice;
-            if (customer.Tier == CustomerTier.Gold)
-            {
-                unitPrice = Math.Round(unitPrice * (1 - GetDiscountRate(customer.Tier)), 2);
-            }
-
             order.Items.Add(new OrderItem
             {
                 ProductId = product.Id,
                 Quantity = line.Quantity,
-                UnitPriceSnapshot = unitPrice
+                UnitPriceSnapshot = product.UnitPrice
             });
         }
 
         if (errors.Count > 0)
             return ServiceResult<Order>.Fail(errors);
+
+        order.TotalAmountSnapshot = CalculateTotal(order);
 
         await _orderRepository.AddAsync(order);
         await _orderRepository.SaveChangesAsync();
@@ -128,13 +126,27 @@ public class OrderService : IOrderService
         _ => 0m
     };
 
+    public decimal GetAppliedDiscountRate(Order order)
+    {
+        if (order.DiscountRateSnapshot.HasValue)
+            return order.DiscountRateSnapshot.Value;
+
+        var tier = order.Customer?.Tier ?? CustomerTier.Standard;
+
+        // Legacy Gold orders stored the discounted unit price before pricing snapshots existed.
+        return tier == CustomerTier.Gold ? 0m : GetDiscountRate(tier);
+    }
+
     public decimal CalculateSubtotal(Order order) =>
         order.Items.Sum(i => i.UnitPriceSnapshot * i.Quantity);
 
     public decimal CalculateTotal(Order order)
     {
-        var tier = order.Customer?.Tier ?? CustomerTier.Standard;
+        if (order.TotalAmountSnapshot.HasValue)
+            return order.TotalAmountSnapshot.Value;
+
+        var discountRate = GetAppliedDiscountRate(order);
         var subtotal = CalculateSubtotal(order);
-        return Math.Round(subtotal * (1 - GetDiscountRate(tier)), 2);
+        return Math.Round(subtotal * (1 - discountRate), 2);
     }
 }
