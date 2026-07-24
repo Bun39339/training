@@ -1,0 +1,5 @@
+# 沙盒：只能寫 workspace 內的檔案，預設不能連網
+sandbox_mode = "workspace-write"
+
+# 要跳出沙盒（連網、寫 workspace 外）或碰到 rules 標記的指令時詢問
+approval_policy = "on-request"
