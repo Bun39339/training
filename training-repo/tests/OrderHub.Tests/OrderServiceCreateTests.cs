@@ -6,6 +6,70 @@ namespace OrderHub.Tests;
 public class OrderServiceCreateTests
 {
     [Fact]
+    public async Task CreateOrder_MixedLines_PreservesErrorOrderAndUnsavedStockChanges()
+    {
+        using var db = TestSetup.CreateContext();
+        var service = TestSetup.CreateOrderService(db);
+        var customer = TestSetup.AddCustomer(db);
+        var firstValid = TestSetup.AddProduct(db, stock: 10);
+        var insufficient = TestSetup.AddProduct(db, stock: 1);
+        var lastValid = TestSetup.AddProduct(db, stock: 8);
+
+        var result = await service.CreateOrderAsync(customer.Id, new[]
+        {
+            new NewOrderLine(firstValid.Id, 2),
+            new NewOrderLine(insufficient.Id, 3),
+            new NewOrderLine(999, 1),
+            new NewOrderLine(lastValid.Id, 3)
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal(new[]
+        {
+            $"商品「{insufficient.Name}」庫存不足（現有 1，需求 3）",
+            "商品（Id=999）不存在或已停售"
+        }, result.Errors);
+        Assert.Equal(8, firstValid.StockQuantity);
+        Assert.Equal(1, insufficient.StockQuantity);
+        Assert.Equal(5, lastValid.StockQuantity);
+        Assert.Empty(db.Orders);
+
+        db.ChangeTracker.Clear();
+        Assert.Equal(10, db.Products.Single(p => p.Id == firstValid.Id).StockQuantity);
+        Assert.Equal(8, db.Products.Single(p => p.Id == lastValid.Id).StockQuantity);
+    }
+
+    [Fact]
+    public async Task CreateOrder_InvalidCustomerAndLines_ReturnsCustomerErrorFirst()
+    {
+        using var db = TestSetup.CreateContext();
+        var service = TestSetup.CreateOrderService(db);
+
+        var result = await service.CreateOrderAsync(999, null!);
+
+        Assert.False(result.Success);
+        Assert.Equal("找不到指定的客戶", Assert.Single(result.Errors));
+    }
+
+    [Fact]
+    public async Task CreateOrder_NonPositiveQuantityAndDuplicateProduct_ReturnsQuantityErrorFirst()
+    {
+        using var db = TestSetup.CreateContext();
+        var service = TestSetup.CreateOrderService(db);
+        var customer = TestSetup.AddCustomer(db);
+        var product = TestSetup.AddProduct(db);
+
+        var result = await service.CreateOrderAsync(customer.Id, new[]
+        {
+            new NewOrderLine(product.Id, 0),
+            new NewOrderLine(product.Id, 1)
+        });
+
+        Assert.False(result.Success);
+        Assert.Equal("商品數量必須大於 0", Assert.Single(result.Errors));
+    }
+
+    [Fact]
     public async Task CreateOrder_HappyPath_CreatesPendingOrder()
     {
         using var db = TestSetup.CreateContext();

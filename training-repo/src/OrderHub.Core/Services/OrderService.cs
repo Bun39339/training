@@ -38,17 +38,39 @@ public class OrderService : IOrderService
         if (customer is null)
             return ServiceResult<Order>.Fail("找不到指定的客戶");
 
+        var validation = ValidateOrderLines(lines);
+        if (!validation.Success)
+            return ServiceResult<Order>.Fail(validation.Errors);
+
+        var order = InitializeOrder(customer);
+        var itemsResult = await AddOrderItemsAsync(order, lines);
+        if (!itemsResult.Success)
+            return ServiceResult<Order>.Fail(itemsResult.Errors);
+
+        order.TotalAmountSnapshot = CalculateTotal(order);
+
+        await _orderRepository.AddAsync(order);
+        await _orderRepository.SaveChangesAsync();
+
+        return ServiceResult<Order>.Ok(order);
+    }
+
+    private static ServiceResult<bool> ValidateOrderLines(IReadOnlyList<NewOrderLine>? lines)
+    {
         if (lines is null || lines.Count == 0)
-            return ServiceResult<Order>.Fail("訂單至少需要一項商品");
+            return ServiceResult<bool>.Fail("訂單至少需要一項商品");
 
         if (lines.Any(l => l.Quantity <= 0))
-            return ServiceResult<Order>.Fail("商品數量必須大於 0");
+            return ServiceResult<bool>.Fail("商品數量必須大於 0");
 
         if (lines.Select(l => l.ProductId).Distinct().Count() != lines.Count)
-            return ServiceResult<Order>.Fail("同一商品請勿重複加入，請調整數量即可");
+            return ServiceResult<bool>.Fail("同一商品請勿重複加入，請調整數量即可");
 
-        var errors = new List<string>();
-        var order = new Order
+        return ServiceResult<bool>.Ok(true);
+    }
+
+    private Order InitializeOrder(Customer customer) =>
+        new Order
         {
             CustomerId = customer.Id,
             Customer = customer,
@@ -57,6 +79,10 @@ public class OrderService : IOrderService
             DiscountRateSnapshot = GetDiscountRate(customer.Tier)
         };
 
+    // Valid lines decrement stock immediately, even when other lines produce errors.
+    private async Task<ServiceResult<bool>> AddOrderItemsAsync(Order order, IReadOnlyList<NewOrderLine> lines)
+    {
+        var errors = new List<string>();
         foreach (var line in lines)
         {
             var product = await _productRepository.GetByIdAsync(line.ProductId);
@@ -83,14 +109,9 @@ public class OrderService : IOrderService
         }
 
         if (errors.Count > 0)
-            return ServiceResult<Order>.Fail(errors);
+            return ServiceResult<bool>.Fail(errors);
 
-        order.TotalAmountSnapshot = CalculateTotal(order);
-
-        await _orderRepository.AddAsync(order);
-        await _orderRepository.SaveChangesAsync();
-
-        return ServiceResult<Order>.Ok(order);
+        return ServiceResult<bool>.Ok(true);
     }
 
     public async Task<ServiceResult<Order>> CancelOrderAsync(int id)
