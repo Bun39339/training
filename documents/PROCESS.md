@@ -41,20 +41,25 @@ gpt-5.6-sol
 練習 1
 
 1. 我能不看筆記說出三個專案（Web/Core/Infrastructure）各自的職責
-   OK
+   <br/>OK
 2. 我核對過 agent 描述的建單流程，且**至少找出一處不精確或過度簡化的說法**
    <img width="1257" height="814" alt="image" src="https://github.com/user-attachments/assets/a78fadb1-75e0-4d38-9584-ed1973b6aecf" />
    Codex Agent 描述的建單流程看起來精準
 3. 我知道商業邏輯應該放在哪一層、新增頁面要動哪些地方
-   OK
+   <br/>OK
 
 練習 2
 
 1. 三個 bug 我都先在頁面上重現過，才開始找程式
+   <br/>OK
 2. 我給 agent 的資訊包含具體觀察（頁碼／金額數字／庫存數字），而不是只貼客訴原文
+   <br/>OK
 3. 每個修復都回到頁面驗證過症狀消失
+   <br/>OK
 4. 每個 bug 都補了一個回歸測試，`dotnet test` 全綠
+   <br/>OK
 5. 三個獨立 commit，message 說明症狀與根因
+   <br/>客訴1 Commit 只說明處理了什麼, 無說明症狀與根因, 後續客訴2~3改用Codex處理 不了症狀/根因和處理方式
 6. （思考題）為什麼原本的測試沒抓到這三個 bug？
 
 練習 3
@@ -79,5 +84,34 @@ gpt-5.6-sol
 （貼 1–2 段最有代表性的 prompt 與回應**摘要**——不用貼全文，重點是「我怎麼問」和「它怎麼答」。）
 <img width="1225" height="457" alt="image" src="https://github.com/user-attachments/assets/5eda1901-77f5-4e20-9913-4b023bf6b898" />
 
+練習2 客訴2
+Codex 建議最小變動是 移除CreateOrderAsync中Gold專屬的預先折價, 在顯示訂單時才統一使用CalculateTotal計算
+這部分不符合商業邏輯 請AI修改處理方式
+Prompt
+"這修改方式不符合邏輯
+  這樣入庫的 Price 會是原價, 數據庫沒保存 實際會員應付款金額
+  且若往後折扣異動, 顯示頁面的價格會隨之變動
+  這變成 訂單原本是金額 1000, 但之後折扣變動, 頁面顯示金額變成 500"
+AI
+"你說得對，我前一個修法會讓歷史訂單受未來折扣規則影響，不符合訂單快照的語意，我撤回該方案。
 
+  目前資料模型只有商品原價快照 UnitPriceSnapshot，卻沒有保存「下單當時的折扣」與「實付總額」。這才是更完整的根因；Gold 的重複折扣只是現有設計不一致所呈現的症狀。
 
+  建議修法：
+
+  - Order 新增 DiscountRateSnapshot，保存下單當時的折扣率。
+  - Order 新增 TotalAmountSnapshot，保存訂單成立時的實付總額。
+  - UnitPriceSnapshot 維持商品下單時的原價，詳情頁仍能顯示原價、小計及折扣金額。
+  - 建單時由 OrderService.CalculateTotal 集中計算一次並保存。
+  - 查詢歷史訂單時直接使用已保存的折扣與實付總額，不再依客戶目前等級重算。
+  - 使用 EF 工具產生 migration，不手動修改既有 migration。
+
+  這樣 1420 元的 Gold 訂單會入庫：
+
+  UnitPriceSnapshot:     1420
+  DiscountRateSnapshot:  0.10
+  TotalAmountSnapshot:   1278
+
+  日後即使 Gold 折扣改成 50%，該訂單仍顯示 1278。
+
+  這項修復會涉及資料庫新增兩個欄位。請確認是否依此方案修改？"
