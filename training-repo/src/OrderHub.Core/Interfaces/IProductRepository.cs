@@ -1,4 +1,5 @@
 using OrderHub.Core.Domain;
+using OrderHub.Core.Services;
 
 namespace OrderHub.Core.Interfaces;
 
@@ -8,4 +9,6 @@ public interface IProductRepository
     Task<IReadOnlyList<Product>> GetActiveAsync();
     Task<Product?> GetByIdAsync(int id);
     Task SaveChangesAsync();
+    Task<IReadOnlyList<LowStockProduct>> GetLowStockAsync(
+        int threshold, DateTime fromUtc, DateTime toUtc, OrderStatus excludedStatus);
 }
